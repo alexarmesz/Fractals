@@ -1,29 +1,40 @@
-from dataclasses import dataclass
-
-@dataclass
-class MandelbrotSet:
-    max_iterations: int
-
-    def escape_count(self, c: complex) -> int:
-        z = 0
-        for iteration in range(self.max_iterations):
-            z = z ** 2 + c
-            if abs(z) > 2:
-                return iteration
-        return self.max_iterations
-
-
-mandelbrot_set = MandelbrotSet(max_iterations=20)
-
-width, height = 512, 512
-scale = 0.0075
-BLACK_AND_WHITE = "1"
-
+from Mandlebrot import MandelbrotSet
 from PIL import Image
-image = Image.new(mode=BLACK_AND_WHITE, size=(width, height))
-for y in range(height):
-    for x in range(width):
-        c = scale * complex(x - width / 2, height / 2 - y)
-        image.putpixel((x, y), c not in mandelbrot_set)
+from Viewport import Viewport
+from PIL.ImageColor import getrgb
+
+# -0.7435 + 0.1314j
+
+def paint(mandelbrot_set, viewport, palette, smooth):
+    for pixel in viewport:
+        stability = mandelbrot_set.stability(complex(pixel), smooth)
+        index = int(min(stability * len(palette), len(palette) - 1))
+        pixel.color = palette[index % len(palette)]
+
+def denormalize(palette):
+    return [
+        tuple(int(channel * 255) for channel in color)
+        for color in palette
+    ]
+
+def hsb(hue_degrees: int, saturation: float, brightness: float):
+    return getrgb(
+        f"hsv({hue_degrees % 360},"
+        f"{saturation * 100}%,"
+        f"{brightness * 100}%)"
+    )
+
+hsb(180, 1, 1)
+
+image = Image.new(mode="RGB", size=(1024, 1024))
+mandelbrot_set = MandelbrotSet(max_iterations=30, escape_radius=1000)
+for pixel in Viewport(image, center=-0.75, width=3.5):
+    stability = mandelbrot_set.stability(complex(pixel), smooth=True)
+    pixel.color = (0, 0, 0) if stability == 1 else hsb(
+        hue_degrees=int(stability * 360),
+        saturation=stability,
+        brightness=1,
+    )
 
 image.show()
+image.save("saves/mandlebrot.png", "PNG")
